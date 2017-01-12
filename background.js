@@ -51,27 +51,31 @@ chrome.commands.onCommand.addListener(function(command) {
 
 // intercept url
 chrome.webRequest.onBeforeRequest.addListener(
-  function(details) {
-    if (details.url.indexOf("http://reload.extensions") >= 0) {
-		reloadExtensions();
-		chrome.tabs.get(details.tabId, function(tab) {
-			if (tab.selected === false) {
+	function(details) {
+		if (details.url.indexOf("http://reload.extensions") >= 0) {
+			reloadExtensions();
+			// Close the tab if we can find a valid associated tab
+			chrome.tabs.get(details.tabId, function(tab) {
+				// This is usually a pre-fetch request for which no tab is associated.
+				if (typeof(tab) === "undefined") {
+					// Check lastError to prevent chrome from whining
+					var lastError = chrome.runtime.lastError;
+					if (lastError && lastError.message.slice(0, 15) != "No tab with id:") {
+						console.log("reload.extensions weirdness:" + chrome.runtime.lastError.message);
+					}
+					return;
+				}
 				chrome.tabs.remove(details.tabId);
-			}
-		});
-		return {
-			// close the newly opened window
-			redirectUrl: chrome.extension.getURL("close.html")
-		};
-    }
+			});
+		}
 
 	return {cancel: false};
-  },
-  {
-    urls: ["http://reload.extensions/"],
-    types: ["main_frame"]
-  },
-  ["blocking"]
+	},
+	{
+		urls: ["http://reload.extensions/"],
+		types: ["main_frame"]
+	},
+	["blocking"]
 );
 
 chrome.browserAction.onClicked.addListener(function(/*tab*/) {
